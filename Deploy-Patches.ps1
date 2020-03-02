@@ -1,3 +1,11 @@
+<#
+ # Script:          Auto Deploy Patches for SCCM (SL2 Site)
+ # Author:          Jose Magallanes
+ # Created:         11/2/2019
+ # Updates:         
+#>
+
+
 # Get the initial location, so the user is returned at the end of the script run.
 $startlocation = Get-Location
 
@@ -10,8 +18,7 @@ $initParams = @{}
 #$initParams.Add("Verbose", $true) # Uncomment this line to enable verbose logging
 #$initParams.Add("ErrorAction", "Stop") # Uncomment this line to stop the script on any errors
 
-# Do not change anything below this line
-
+#### DO NOT CHANGE ANYTHING BELOW THIS LINE
 # Import the ConfigurationManager.psd1 module 
 if($null -eq (Get-Module ConfigurationManager)) {
     Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" @initParams 
@@ -25,23 +32,23 @@ if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction Silent
 # Set the current location to be the site code.
 Set-Location "$($SiteCode):\" @initParams
 
-# Do not change anything above this line
+### DO NOT CHANGE ANYTHING ABOVE THIS LINE
 
 # Maintenance Window Constants
 $MW_DEV_COLLECTION = 'SL20007A'
 $MW_SAP_DEV_COLLECTION = 'SL20008A'
 $MW_QA_COLLECTION = 'SL20007C'
 $MW_SCCM_COLLECTION = 'SL20008C'
-#$MW_EGL_COLLECTION = 'SL200081' 
-#$MW_SAP_PROD_COLLECTION = 'SL200080'
-#$MW_ADITS_COLLECTION = 'SL20008E'
-#$MW_Z_FULL_PATCH_COLLECTION = 'SL20007F'
+$MW_EGL_COLLECTION = 'SL200081' 
+$MW_SAP_PROD_COLLECTION = 'SL200080'
+$MW_AD_ITS_COLLECTION = 'SL20008E'
+$MW_Z_FULL_PATCH_COLLECTION = 'SL20007F'
 
 # Deployment Constants
 $DEV_SERVERS = 'SL20004A'
 $QA_SERVERS = 'SL200049'
 $SAP_DEV_SERVERS = 'SL20008B'
-$SUM_SCCM_Servers = 'SL200076'
+$SUM_SCCM_SERVERS = 'SL200076'
 $EGL_SERVERS_COLLECTION = 'SL200078'
 $SUM_ADITS_SERVERS = 'SL20008F'
 $SAP_PRODUCTION_COLLECTION = 'SL20004B'
@@ -55,10 +62,8 @@ $patch_tuesday = $patch_tuesday.ToUniversalTime()
 Write-Host 'Patch Tuesday UTC time:'$patch_tuesday
 
 # Calculate Dev Maintenance Window Time
-
 $dev_start_time = $patch_tuesday.AddDays(2).AddHours(5).AddMinutes(45)
 $dev_end_time = $dev_start_time.AddHours(4)
-
 
 # Calculate QA Maintenance Window Time
 $qa_start_time = $dev_start_time.AddDays(1)
