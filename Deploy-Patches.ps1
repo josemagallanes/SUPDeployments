@@ -1,8 +1,8 @@
 <#
  # Script:          Auto Deploy Patches for SCCM (SL2 Site)
  # Author:          Jose Magallanes
- # Created:         11/2/2019
- # Updates:         
+ # Created:         11/02/2019
+ # Updates:         03/03/2020
 #>
 
 
@@ -33,7 +33,6 @@ if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction Silent
     New-PSDrive -Name $SiteCode -PSProvider CMSite -Root $ProviderMachineName @initParams
 }
 
-Write-Host "FUCK"
 # Set the current location to be the site code.
 Set-Location "$($SiteCode):\" @initParams
 
@@ -89,22 +88,9 @@ $prod_end_time = $prod_start_time.AddHours(4)
 
 ###### Create Month Header, for deployment naming
 $softwareUpdateName = Set-UpdateGroupName -day $patch_tuesday
-Write-Host $softwareUpdateName
+Write-Host $softwareUpdateName #DELETEME
 
-<#$month = $patch_tuesday.ToString("MMMM").ToUpper().Substring(0,3)
-$month_number = $patch_tuesday.Month.ToString()
-if ($month_number.length -eq 1) {
-    $month_number = "0" + $month_number # single digit months (ie Jan = 1)
-}
-else {
-    $month_number = $patch_tuesday.Month.ToString()
-}
-$softwareUpdateName = $header = $patch_tuesday.Year.ToString() + " " + `
-    $month_number + " " + $month
-$header = $softwareUpdateName + " - "
-Write-Host 'Header:' $header #DELETEME
-Write-Host 'Software Update Group:' $softwareUpdateName #DELETEME
-#>
+
 # Get Software Update Group
 $sup = Get-CMSoftwareUpdateGroup -Name $softwareUpdateName
 
