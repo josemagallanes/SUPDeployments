@@ -9,6 +9,10 @@
 # Get the initial location, so the user is returned at the end of the script run.
 $startlocation = Get-Location
 
+#Import functions
+. $startlocation\Get-PatchTuesday.ps1
+. $startlocation\Set-UpdateGroupName.ps1
+
 # Site configuration
 $SiteCode = "SL2" # Site code 
 $ProviderMachineName = "smsaus003.silabs.com" # SMS Provider machine name
@@ -29,6 +33,7 @@ if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction Silent
     New-PSDrive -Name $SiteCode -PSProvider CMSite -Root $ProviderMachineName @initParams
 }
 
+Write-Host "FUCK"
 # Set the current location to be the site code.
 Set-Location "$($SiteCode):\" @initParams
 
@@ -55,37 +60,41 @@ $SAP_PRODUCTION_COLLECTION = 'SL20004B'
 $Z_FULL_PATCH_COLLECTION = 'SL20004F'
 
 # Import Get-PatchTuesday function and calculate
-. C:\temp\mw\Get-PatchTuesday.ps1
 $patch_tuesday = Get-PatchTuesday
 Write-Host 'Patch Tuesday:' $patch_tuesday
-$patch_tuesday = $patch_tuesday.ToUniversalTime()
-Write-Host 'Patch Tuesday UTC time:'$patch_tuesday
+$patch_tuesday = $patch_tuesday.ToUniversalTime() #This is Austin 12 AM -> UTC
+#Write-Host 'Patch Tuesday UTC time:'$patch_tuesday
 
-# Calculate Dev Maintenance Window Time
+### Patch Timing Calculations
+# Dev Maintenance Window Time (Thursday of Patch Tuesday Week)
 $dev_start_time = $patch_tuesday.AddDays(2).AddHours(5).AddMinutes(45)
 $dev_end_time = $dev_start_time.AddHours(4)
 
-# Calculate QA Maintenance Window Time
+# QA Maintenance Window Time (Friday of Patch Tuesday Week)
 $qa_start_time = $dev_start_time.AddDays(1)
 $qa_end_time = $qa_start_time.AddHours(4)
 
-# Calculate SCCM Maintenance Window Time
+# SCCM Maintenance Window Time (Saturday of Patch Tuesday Week)
 $sccm_start_time = $dev_start_time.AddDays(2)
 $sccm_end_time = $sccm_start_time.AddHours(4)
 
-# Calculate EGL Maintenance Window Time
+#####DEPRECIATED######
+# EGL Maintenance Window Time (Typically Friday before Maint. Window)
 #$egl_start_time = $patch_tuesday.AddDays(10).AddHours(11)
 #$egl_end_time = $egl_start_time.AddHours(4)
 
-# Calculate Production Maintenance Window Time
-#$prod_start_time = $patch_tuesday.AddDays(11).AddHours(8)
-#$prod_end_time = $prod_start_time.AddHours(4)
+# Production Maintenance Window Time (Next Sat. after Patch Tues.)
+$prod_start_time = $patch_tuesday.AddDays(11).AddHours(8)
+$prod_end_time = $prod_start_time.AddHours(4)
 
-# Create Month Header, for deployment naming
-$month = $patch_tuesday.ToString("MMMM").ToUpper().Substring(0,3)
+###### Create Month Header, for deployment naming
+$softwareUpdateName = Set-UpdateGroupName -day $patch_tuesday
+Write-Host $softwareUpdateName
+
+<#$month = $patch_tuesday.ToString("MMMM").ToUpper().Substring(0,3)
 $month_number = $patch_tuesday.Month.ToString()
 if ($month_number.length -eq 1) {
-    $month_number = "0" + $month_number
+    $month_number = "0" + $month_number # single digit months (ie Jan = 1)
 }
 else {
     $month_number = $patch_tuesday.Month.ToString()
@@ -95,14 +104,14 @@ $softwareUpdateName = $header = $patch_tuesday.Year.ToString() + " " + `
 $header = $softwareUpdateName + " - "
 Write-Host 'Header:' $header #DELETEME
 Write-Host 'Software Update Group:' $softwareUpdateName #DELETEME
-
+#>
 # Get Software Update Group
 $sup = Get-CMSoftwareUpdateGroup -Name $softwareUpdateName
 
 ### Create Maintenance Windows ###
-$dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time -Nonrecurring -IsUTC
-$qa_schedule = New-CMSchedule -End $qa_end_time -Start $qa_start_time -Nonrecurring -IsUTC
-$sccm_schedule = New-CMSchedule -End $sccm_end_time -Start $sccm_start_time -Nonrecurring -IsUTC
+#$dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time -Nonrecurring -IsUTC
+#$qa_schedule = New-CMSchedule -End $qa_end_time -Start $qa_start_time -Nonrecurring -IsUTC
+#$sccm_schedule = New-CMSchedule -End $sccm_end_time -Start $sccm_start_time -Nonrecurring -IsUTC
 #$egl_schedule = New-CMSchedule -End $egl_end_time -Start $egl_start_time -Nonrecurring -IsUTC
 #$prod_schedule = New-CMSchedule -End $prod_end_time -Start $prod_start_time -Nonrecurring -IsUTC
 
@@ -158,7 +167,7 @@ New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($header + 'SCC
 #New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'SAP DEV,QA,MISC Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20008B'
-
+<#
 #QA Deployment
 New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'QA Servers') `
     -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
@@ -169,7 +178,7 @@ New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayNam
     -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
     -DeadlineDateTime $sccm_start_time -CollectionId 'SL200076' -RequirePostRebootFullSca $true -DownloadFromMicrosoftUpdate $true
 
-
+#>
 #Re-evaluate; Neighbor boundary group; download from MS
 
 
@@ -186,3 +195,6 @@ New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayNam
 
 
 Set-Location $startlocation # Puts us back in the original file location
+
+
+#>
