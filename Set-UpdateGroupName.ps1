@@ -20,5 +20,5 @@ Function Set-UpdateGroupName {
     }
     $softwareUpdateName = $day.Year.ToString() + " " + `
                           $month_number + " " + $month
-    return $softwareUpdateName + " - "
+    return $softwareUpdateName
 }

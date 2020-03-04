@@ -6,7 +6,7 @@
 #>
 
 
-# Get the initial location, so the user is returned at the end of the script run.
+# user is returned at the end of the script run
 $startlocation = Get-Location
 
 #Import functions
@@ -15,22 +15,25 @@ $startlocation = Get-Location
 
 # Site configuration
 $SiteCode = "SL2" # Site code 
-$ProviderMachineName = "smsaus003.silabs.com" # SMS Provider machine name
+$ProviderMachineName = "smsaus003.silabs.com" # SMS Provider name
 
 # Customizations
 $initParams = @{}
-#$initParams.Add("Verbose", $true) # Uncomment this line to enable verbose logging
-#$initParams.Add("ErrorAction", "Stop") # Uncomment this line to stop the script on any errors
+#$initParams.Add("Verbose", $true) # enable verbose logging
+#$initParams.Add("ErrorAction", "Stop") # stop the script on any errors
 
 #### DO NOT CHANGE ANYTHING BELOW THIS LINE
 # Import the ConfigurationManager.psd1 module 
 if($null -eq (Get-Module ConfigurationManager)) {
-    Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" @initParams 
+    Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" `
+                  @initParams 
 }
 
 # Connect to the site's drive if it is not already present
-if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite -ErrorAction SilentlyContinue)) {
-    New-PSDrive -Name $SiteCode -PSProvider CMSite -Root $ProviderMachineName @initParams
+if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite `
+              -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name $SiteCode -PSProvider CMSite `
+                -Root $ProviderMachineName @initParams
 }
 
 # Set the current location to be the site code.
@@ -60,7 +63,7 @@ $Z_FULL_PATCH_COLLECTION = 'SL20004F'
 
 # Import Get-PatchTuesday function and calculate
 $patch_tuesday = Get-PatchTuesday
-Write-Host 'Patch Tuesday:' $patch_tuesday
+#Write-Host 'Patch Tuesday:' $patch_tuesday
 $patch_tuesday = $patch_tuesday.ToUniversalTime() #This is Austin 12 AM -> UTC
 #Write-Host 'Patch Tuesday UTC time:'$patch_tuesday
 
@@ -86,13 +89,59 @@ $sccm_end_time = $sccm_start_time.AddHours(4)
 $prod_start_time = $patch_tuesday.AddDays(11).AddHours(8)
 $prod_end_time = $prod_start_time.AddHours(4)
 
+# Confirm Patch Timing
+Clear-Host
+Write-Host "Patch Schedule to be Pushed (UTC Time)"
+Write-Host "-----------------------------------------------"
+Write-Host "Dev and SAP Dev Patching:", $dev_start_time
+Write-Host "QA Patching:             ", $qa_start_time
+Write-Host "SCCM Patching:           ", $sccm_start_time
+Write-Host "Production Servers:      ", $prod_start_time
+
+$con_title    = 'Patch Timing Check'
+$con_question = 'Is this correct?'
+$con_choices  = '&Yes', '&No'
+$continue = $Host.UI.PromptForChoice($con_title, $con_question, $con_choices, 1)
+if ($continue -eq 0) {
+    Write-Host "`n`nChecking for this month's Software Update Group..."
+}
+else {
+    Write-Host "`n`nYou'll have to do this manually. Exiting."
+    Set-Location $startlocation
+    Exit
+}
+
 ###### Create Month Header, for deployment naming
 $softwareUpdateName = Set-UpdateGroupName -day $patch_tuesday
 Write-Host $softwareUpdateName #DELETEME
 
+$last_software_group = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
+                       | Select-Object * -Last 1 #Last created SUG
+
+Write-Host "Last Software Group",($last_software_group.DateCreated.Month)
+Write-Host "This month",($patch_tuesday.Month)
+
+if ($last_software_group.LocalizedDisplayName -ne "2020 02 FEB") {
+    Write-Host "THese dont match!!!"
+} else {
+    Write-Host "These doo match my guy"
+}
+
+# Check if this month's patch SUG has been created, rename if necessary
+if ($last_software_group.DateCreated.Month -ne $patch_tuesday.Month) {
+    Write-Host "This month's Software Update Group has not been created " `
+               "yet. Please try again after Patch Tuesday."
+    Exit
+} else {
+    if ($last_software_group.LocalizedDisplayName -ne $softwareUpdateName) {
+        Write-Host "THese dont match!!!"
+    }
+
+}
+
 
 # Get Software Update Group
-$sup = Get-CMSoftwareUpdateGroup -Name $softwareUpdateName
+#$sup = Get-CMSoftwareUpdateGroup -Name $softwareUpdateName
 
 ### Create Maintenance Windows ###
 #$dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time -Nonrecurring -IsUTC
