@@ -112,8 +112,8 @@ else {
 }
 
 ###### Create Month Header, for deployment naming
-$softwareUpdateName = Set-UpdateGroupName -day $patch_tuesday
-Write-Host $softwareUpdateName #DELETEME
+$suName = Set-UpdateGroupName -day $patch_tuesday
+Write-Host $suName #DELETEME
 
 $last_software_group = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
                        | Select-Object * -Last 1 #Last created SUG
@@ -121,6 +121,7 @@ $last_software_group = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
 Write-Host "Last Software Group",($last_software_group.DateCreated.Month)
 Write-Host "This month",($patch_tuesday.Month)
 
+#####DELETEME - TEST
 if ($last_software_group.LocalizedDisplayName -ne "2020 02 FEB") {
     Write-Host "THese dont match!!!"
 } else {
@@ -129,87 +130,87 @@ if ($last_software_group.LocalizedDisplayName -ne "2020 02 FEB") {
 
 # Check if this month's patch SUG has been created, rename if necessary
 if ($last_software_group.DateCreated.Month -ne $patch_tuesday.Month) {
-    Write-Host "This month's Software Update Group has not been created " `
+    Write-Host "This month's Software Update Group has not been created" `
                "yet. Please try again after Patch Tuesday."
     Exit
 } else {
-    if ($last_software_group.LocalizedDisplayName -ne $softwareUpdateName) {
-        Write-Host "THese dont match!!!"
+    if ($last_software_group.LocalizedDisplayName -ne $suName) {
+        Write-Host "Renaming auto-created Software Update Group..."
+        Set-CMSoftwareUpdateGroup -NewName $suName
     }
-
 }
 
 
-# Get Software Update Group
-#$sup = Get-CMSoftwareUpdateGroup -Name $softwareUpdateName
-
 ### Create Maintenance Windows ###
-#$dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time -Nonrecurring -IsUTC
-#$qa_schedule = New-CMSchedule -End $qa_end_time -Start $qa_start_time -Nonrecurring -IsUTC
-#$sccm_schedule = New-CMSchedule -End $sccm_end_time -Start $sccm_start_time -Nonrecurring -IsUTC
-#$egl_schedule = New-CMSchedule -End $egl_end_time -Start $egl_start_time -Nonrecurring -IsUTC
-#$prod_schedule = New-CMSchedule -End $prod_end_time -Start $prod_start_time -Nonrecurring -IsUTC
 
+#Dev and SAP Dev (Dev, QA, and MiSC)
+$dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time `
+                               -Nonrecurring -IsUTC
+New-CMMaintenanceWindow -CollectionId $MW_DEV_COLLECTION `
+                        -Name ($suName + ' - MW Dev Servers')  `
+                        -Schedule $dev_schedule -ApplyTo SoftwareUpdatesOnly
+New-CMMaintenanceWindow -CollectionId $MW_SAP_DEV_COLLECTION `
+                        -Name ($suName + ' - MW SAP Dev,QA,Misc Servers') `
+                        -Schedule $dev_schedule -ApplyTo SoftwareUpdatesOnly
 
-# Dev MW
-#New-CMMaintenanceWindow -CollectionId $MW_DEV_COLLECTION -Name ($header + 'MW Dev Servers')  `
-#    -Schedule $dev_schedule -ApplyTo SoftwareUpdatesOnly
+#QA Collection
+$qa_schedule = New-CMSchedule -End $qa_end_time -Start $qa_start_time `
+                              -Nonrecurring -IsUTC
+New-CMMaintenanceWindow -CollectionId $MW_QA_COLLECTION `
+                        -Name ($suName + ' - MW QA Servers') `
+                        -Schedule $qa_schedule -ApplyTo SoftwareUpdatesOnly
 
-# SAP DEV,QA,MISC MW
-#New-CMMaintenanceWindow -CollectionId $MW_SAP_DEV_COLLECTION -Name ($header + 'MW SAP Dev,QA,Misc Servers') `
-#    -Schedule $dev_schedule -ApplyTo SoftwareUpdatesOnly
+#SCCM Collection
+$sccm_schedule = New-CMSchedule -End $sccm_end_time -Start $sccm_start_time `
+                                -Nonrecurring -IsUTC
+New-CMMaintenanceWindow -CollectionId $MW_SCCM_COLLECTION `
+                        -Name ($suName + ' - MW SUM SCCM') `
+                        -Schedule $sccm_schedule -ApplyTo SoftwareUpdatesOnly
 
-# QA MW
-#New-CMMaintenanceWindow -CollectionId $MW_QA_COLLECTION -Name ($header + 'MW QA Servers') `
-#    -Schedule $qa_schedule -ApplyTo SoftwareUpdatesOnly
+#Production Collections
+$prod_schedule = New-CMSchedule -End $prod_end_time -Start $prod_start_time
+                                -Nonrecurring -IsUTC
+New-CMMaintenanceWindow -CollectionId $MW_AD_ITS_COLLECTION `
+                        -Name ($suName + ' - MW AD/ITS Servers') `
+                        -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
+New-CMMaintenanceWindow -CollectionId $MW_SAP_PROD_COLLECTION `
+                        -Name ($suName + ' - MW SAP PROD Servers') `
+                        -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
+New-CMMaintenanceWindow -CollectionId $MW_EGL_COLLECTION `
+                        -Name ($suName + ' - MW EGL Servers') `
+                        -Schedule $egl_schedule -ApplyTo SoftwareUpdatesOnly
+New-CMMaintenanceWindow -CollectionId $MW_Z_FULL_PATCH_COLLECTION `
+                        -Name ($suName + ' - MW Z-Full Patch Servers') `
+                        -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
 
-# SCCM MW
-#New-CMMaintenanceWindow -CollectionId $MW_SCCM_COLLECTION -Name ($header + 'MW SUM SCCM') `
-#    -Schedule $sccm_schedule -ApplyTo SoftwareUpdatesOnly
-
-# EGL MW
-#New-CMMaintenanceWindow -CollectionId $MW_EGL_COLLECTION -Name ($header + 'MW EGL Servers') `
-#    -Schedule $egl_schedule -ApplyTo SoftwareUpdatesOnly
-
-#SAP PROD MW
-#New-CMMaintenanceWindow -CollectionId $MW_SAP_PROD_COLLECTION -Name ($header + 'MW SAP PROD Servers') `
-#    -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
-
-# AD/ITS MW
-#New-CMMaintenanceWindow -CollectionId $MW_ADITS_COLLECTION -Name ($header + 'MW AD/ITS Servers') `
-#    -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
-
-# Z-Full Collection MW
-#New-CMMaintenanceWindow -CollectionId $MW_Z_FULL_PATCH_COLLECTION -Name ($header + 'MW Z-Full Patch Servers') `
-#    -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
 
 #$desc = 'Patch Tuesday'
 
 <# UNCOMMENT NEXT PATCH CYCLE
-New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($header + 'SCCM Test Servers') `
+New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($suName + 'SCCM Test Servers') `
     -Description $desc -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
     -RequirePostRebootFullScan $true -DownloadFromMicrosoftUpdate $true -DeadlineDateTime $prod_start_time `
     -CollectionID 'SL200076' -UseBranchCache $true -ProtectedType RemoteDistributionPoint
 #>
 
 #DEV Deployment
-#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'DEV Servers') `
+#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'DEV Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20004A'
 
 
 #SAP DEV,QA,MISC Deployment (Same start time as DEV)
-#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'SAP DEV,QA,MISC Servers') `
+#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'SAP DEV,QA,MISC Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20008B'
 <#
 #QA Deployment
-New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'QA Servers') `
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'QA Servers') `
     -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
     -DeadlineDateTime $qa_start_time -CollectionId 'SL200049' -RequirePostRebootFullScan $true -DownloadFromMicrosoftUpdate $true
 
 #SCCM Deployment
-New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($header + 'SUM SCCM Servers') `
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'SUM SCCM Servers') `
     -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
     -DeadlineDateTime $sccm_start_time -CollectionId 'SL200076' -RequirePostRebootFullSca $true -DownloadFromMicrosoftUpdate $true
 
@@ -219,12 +220,12 @@ New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayNam
 
 
 # EGL SUM Deployment
-#New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($header + 'EGL Servers') `
+#New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($suName + 'EGL Servers') `
 #    -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -RequirePostRebootFullScan $true -DownloadFromMicrosoftUpdate $true -DeadlineDateTime $egl_start_time `
 #    -CollectionID $EGL_SERVERS_COLLECTION -UseBranchCache $true -ProtectedType RemoteDistributionPoint
 
-#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup -DeploymentName ($header + ' - SCCM Test Servers') `
+#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup -DeploymentName ($suName + ' - SCCM Test Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $sccm_start_time -CollectionId 'SL200076' -whatif
 
