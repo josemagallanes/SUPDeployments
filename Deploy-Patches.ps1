@@ -52,14 +52,14 @@ $MW_AD_ITS_COLLECTION = 'SL20008E'
 $MW_Z_FULL_PATCH_COLLECTION = 'SL20007F'
 
 # Deployment Constants
-$DEV_SERVERS = 'SL20004A'
+#$DEV_SERVERS = 'SL20004A'
 $QA_SERVERS = 'SL200049'
-$SAP_DEV_SERVERS = 'SL20008B'
-$SUM_SCCM_SERVERS = 'SL200076'
-$EGL_SERVERS_COLLECTION = 'SL200078'
-$SUM_ADITS_SERVERS = 'SL20008F'
-$SAP_PRODUCTION_COLLECTION = 'SL20004B'
-$Z_FULL_PATCH_COLLECTION = 'SL20004F'
+#$SAP_DEV_SERVERS = 'SL20008B'
+#$SUM_SCCM_SERVERS = 'SL200076'
+#$EGL_SERVERS_COLLECTION = 'SL200078'
+#$SUM_ADITS_SERVERS = 'SL20008F'
+#$SAP_PRODUCTION_COLLECTION = 'SL20004B'
+#$Z_FULL_PATCH_COLLECTION = 'SL20004F'
 
 # Import Get-PatchTuesday function and calculate
 $patch_tuesday = Get-PatchTuesday
@@ -115,32 +115,26 @@ else {
 $suName = Set-UpdateGroupName -day $patch_tuesday
 Write-Host $suName #DELETEME
 
-$last_software_group = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
+$last_sug = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
                        | Select-Object * -Last 1 #Last created SUG
 
-Write-Host "Last Software Group",($last_software_group.DateCreated.Month)
+Write-Host "Last Software Group",($last_sug.DateCreated.Month)
 Write-Host "This month",($patch_tuesday.Month)
 
-#####DELETEME - TEST
-if ($last_software_group.LocalizedDisplayName -ne "2020 02 FEB") {
-    Write-Host "THese dont match!!!"
-} else {
-    Write-Host "These doo match my guy"
-}
-
 # Check if this month's patch SUG has been created, rename if necessary
-if ($last_software_group.DateCreated.Month -ne $patch_tuesday.Month) {
+if ($last_sug.DateCreated.Month -ne $patch_tuesday.Month) {
     Write-Host "This month's Software Update Group has not been created" `
                "yet. Please try again after Patch Tuesday."
     Exit
 } else {
-    if ($last_software_group.LocalizedDisplayName -ne $suName) {
+    if ($last_sug.LocalizedDisplayName -ne $suName) {
         Write-Host "Renaming auto-created Software Update Group..."
-        Set-CMSoftwareUpdateGroup -NewName $suName
+        Set-CMSoftwareUpdateGroup -Name $last_sug.LocalizedDisplayName `
+                                  -NewName $suName
     }
 }
 
-
+$cur_sug = $last_sug.LocalizedDisplayName
 ### Create Maintenance Windows ###
 
 #Dev and SAP Dev (Dev, QA, and MiSC)
@@ -194,26 +188,34 @@ New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($suName + 'SCC
 #>
 
 #DEV Deployment
-#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'DEV Servers') `
+#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug -DeploymentName ($suName + 'DEV Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20004A'
 
 
 #SAP DEV,QA,MISC Deployment (Same start time as DEV)
-#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'SAP DEV,QA,MISC Servers') `
+#New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug -DeploymentName ($suName + 'SAP DEV,QA,MISC Servers') `
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20008B'
-<#
-#QA Deployment
-New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'QA Servers') `
-    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
-    -DeadlineDateTime $qa_start_time -CollectionId 'SL200049' -RequirePostRebootFullScan $true -DownloadFromMicrosoftUpdate $true
 
-#SCCM Deployment
-New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $sup.LocalizedDisplayName -DeploymentName ($suName + 'SUM SCCM Servers') `
+# SUM QA SERVERS DEPLOYMENT
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
+                               -DeploymentName ($suName + ' - SUM QA Servers') `
+                               -Description 'Patch Tuesday' `
+                               -DeploymentType Required `
+                               -TimeBasedOn UTC `
+                               -UserNotification DisplaySoftwareCenterOnly `
+                               -AvailableDateTime $dev_start_time `
+                               -DeadlineDateTime $qa_start_time `
+                               -CollectionId $QA_SERVERS `
+                               -RequirePostRebootFullScan $true `
+                               -DownloadFromMicrosoftUpdate $true
+
+    
+<#SCCM Deployment
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug -DeploymentName ($suName + 'SUM SCCM Servers') `
     -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
     -DeadlineDateTime $sccm_start_time -CollectionId 'SL200076' -RequirePostRebootFullSca $true -DownloadFromMicrosoftUpdate $true
-
 #>
 #Re-evaluate; Neighbor boundary group; download from MS
 
