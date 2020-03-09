@@ -5,7 +5,6 @@
  # Updates:         03/03/2020
 #>
 
-
 # user is returned at the end of the script run
 $startlocation = Get-Location
 
@@ -28,17 +27,14 @@ if($null -eq (Get-Module ConfigurationManager)) {
     Import-Module "$($ENV:SMS_ADMIN_UI_PATH)\..\ConfigurationManager.psd1" `
                   @initParams 
 }
-
 # Connect to the site's drive if it is not already present
 if($null -eq (Get-PSDrive -Name $SiteCode -PSProvider CMSite `
               -ErrorAction SilentlyContinue)) {
     New-PSDrive -Name $SiteCode -PSProvider CMSite `
                 -Root $ProviderMachineName @initParams
 }
-
 # Set the current location to be the site code.
 Set-Location "$($SiteCode):\" @initParams
-
 ### DO NOT CHANGE ANYTHING ABOVE THIS LINE
 
 # Maintenance Window Constants
@@ -52,9 +48,9 @@ $MW_AD_ITS_COLLECTION = 'SL20008E'
 $MW_Z_FULL_PATCH_COLLECTION = 'SL20007F'
 
 # Deployment Constants
-#$DEV_SERVERS = 'SL20004A'
+$DEV_SERVERS = 'SL20004A'
 $QA_SERVERS = 'SL200049'
-#$SAP_DEV_SERVERS = 'SL20008B'
+$SAP_DEV_SERVERS = 'SL20008B'
 #$SUM_SCCM_SERVERS = 'SL200076'
 #$EGL_SERVERS_COLLECTION = 'SL200078'
 #$SUM_ADITS_SERVERS = 'SL20008F'
@@ -63,11 +59,9 @@ $QA_SERVERS = 'SL200049'
 
 # Import Get-PatchTuesday function and calculate
 $patch_tuesday = Get-PatchTuesday
-#Write-Host 'Patch Tuesday:' $patch_tuesday
 $patch_tuesday = $patch_tuesday.ToUniversalTime() #This is Austin 12 AM -> UTC
-#Write-Host 'Patch Tuesday UTC time:'$patch_tuesday
 
-### Patch Timing Calculations
+<# Patch Timing Calculations#>
 # Dev Maintenance Window Time (Thursday of Patch Tuesday Week)
 $dev_start_time = $patch_tuesday.AddDays(2).AddHours(5).AddMinutes(45)
 $dev_end_time = $dev_start_time.AddHours(4)
@@ -80,16 +74,11 @@ $qa_end_time = $qa_start_time.AddHours(4)
 $sccm_start_time = $dev_start_time.AddDays(2)
 $sccm_end_time = $sccm_start_time.AddHours(4)
 
-#####DEPRECIATED######
-# EGL Maintenance Window Time (Typically Friday before Maint. Window)
-#$egl_start_time = $patch_tuesday.AddDays(10).AddHours(11)
-#$egl_end_time = $egl_start_time.AddHours(4)
-
 # Production Maintenance Window Time (Next Sat. after Patch Tues.)
 $prod_start_time = $patch_tuesday.AddDays(11).AddHours(8)
 $prod_end_time = $prod_start_time.AddHours(4)
 
-# Confirm Patch Timing
+<# Confirm Patch Timing#>
 Clear-Host
 Write-Host "Patch Schedule to be Pushed (UTC Time)"
 Write-Host "-----------------------------------------------"
@@ -113,11 +102,8 @@ else {
 
 ###### Create Month Header, for deployment naming
 $suName = Set-UpdateGroupName -day $patch_tuesday
-Write-Host $suName #DELETEME
-
 $last_sug = Get-CMSoftwareUpdateGroup | Sort-Object DateCreated `
                        | Select-Object * -Last 1 #Last created SUG
-
 Write-Host "Last Software Group",($last_sug.DateCreated.Month)
 Write-Host "This month",($patch_tuesday.Month)
 
@@ -133,10 +119,9 @@ if ($last_sug.DateCreated.Month -ne $patch_tuesday.Month) {
                                   -NewName $suName
     }
 }
-
 $cur_sug = $last_sug.LocalizedDisplayName
-### Create Maintenance Windows ###
 
+<# Create Maintenance Windows #>
 #Dev and SAP Dev (Dev, QA, and MiSC)
 $dev_schedule = New-CMSchedule -End $dev_end_time -Start $dev_start_time `
                                -Nonrecurring -IsUTC
@@ -172,13 +157,50 @@ New-CMMaintenanceWindow -CollectionId $MW_SAP_PROD_COLLECTION `
                         -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
 New-CMMaintenanceWindow -CollectionId $MW_EGL_COLLECTION `
                         -Name ($suName + ' - MW EGL Servers') `
-                        -Schedule $egl_schedule -ApplyTo SoftwareUpdatesOnly
+                        -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
 New-CMMaintenanceWindow -CollectionId $MW_Z_FULL_PATCH_COLLECTION `
                         -Name ($suName + ' - MW Z-Full Patch Servers') `
                         -Schedule $prod_schedule -ApplyTo SoftwareUpdatesOnly
 
 
 #$desc = 'Patch Tuesday'
+# SUM DEV SERVERS DEPLOYMENT
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
+                               -DeploymentNam ($suName + ' - SUM DEV Servers') `
+                               -Description 'Patch Tuesday' `
+                               -DeploymentType Required `
+                               -TimeBasedOn UTC `
+                               -UserNotification DisplaySoftwareCenterOnly `
+                               -DeadlineDateTime $dev_start_time `
+                               -CollectionId $DEV_Servers `
+                               -RequirePostRebootFullScan $true `
+                               -DownloadFromMicrosoftUpdate $true
+
+# SUM SAP DEV,QA,MISC SERVERS DEPLOYMENT
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
+                               -DeploymentN ($suName + `
+                                             ' - SUM SAP DEV,QA,MISC Servers') `
+                               -Description 'Patch Tuesday' `
+                               -DeploymentType Required `
+                               -TimeBasedOn UTC `
+                               -UserNotification DisplaySoftwareCenterOnly `
+                               -DeadlineDateTime $dev_start_time `
+                               -CollectionID $SAP_DEV_SERVERS `
+                               -RequirePostRebootFullScan $true `
+                               -DownloadFromMicrosoftUpdate $true
+
+# SUM QA SERVERS DEPLOYMENT
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
+                               -DeploymentName ($suName + ' - SUM QA Servers') `
+                               -Description 'Patch Tuesday' `
+                               -DeploymentType Required `
+                               -TimeBasedOn UTC `
+                               -UserNotification DisplaySoftwareCenterOnly `
+                               -AvailableDateTime $dev_start_time `
+                               -DeadlineDateTime $qa_start_time `
+                               -CollectionId $QA_SERVERS `
+                               -RequirePostRebootFullScan $true `
+                               -DownloadFromMicrosoftUpdate $true
 
 <# UNCOMMENT NEXT PATCH CYCLE
 New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($suName + 'SCCM Test Servers') `
@@ -198,18 +220,7 @@ New-CMSoftwareUpdateDeployment -InputObject $sup -DeploymentName ($suName + 'SCC
 #    -Description 'Patch Tuesday' -DeploymentType Required -TimeBasedOn UTC -UserNotification DisplaySoftwareCenterOnly `
 #    -DeadlineDateTime $dev_start_time -CollectionId 'SL20008B'
 
-# SUM QA SERVERS DEPLOYMENT
-New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
-                               -DeploymentName ($suName + ' - SUM QA Servers') `
-                               -Description 'Patch Tuesday' `
-                               -DeploymentType Required `
-                               -TimeBasedOn UTC `
-                               -UserNotification DisplaySoftwareCenterOnly `
-                               -AvailableDateTime $dev_start_time `
-                               -DeadlineDateTime $qa_start_time `
-                               -CollectionId $QA_SERVERS `
-                               -RequirePostRebootFullScan $true `
-                               -DownloadFromMicrosoftUpdate $true
+
 
     
 <#SCCM Deployment
