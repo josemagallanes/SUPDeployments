@@ -5,7 +5,7 @@ Function Set-UpdateGroupName {
         .DESCRIPTION
         Formats this month's software update group name in to YYYY MM MM Format
         .EXAMPLE
-        Example Output for January 2020: "2020 01 JAN - "
+        Example Output for January 2020: "2020 01 JAN"
     #>
     param (
         [datetime]$day

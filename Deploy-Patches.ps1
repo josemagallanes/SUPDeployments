@@ -178,7 +178,7 @@ New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
 
 # SUM SAP DEV,QA,MISC SERVERS DEPLOYMENT
 New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
-                               -DeploymentN ($suName + `
+                               -DeploymentN ($suName + 
                                              ' - SUM SAP DEV,QA,MISC Servers') `
                                -Description 'Patch Tuesday' `
                                -DeploymentType Required `
@@ -199,6 +199,20 @@ New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
                                -AvailableDateTime $dev_start_time `
                                -DeadlineDateTime $qa_start_time `
                                -CollectionId $QA_SERVERS `
+                               -RequirePostRebootFullScan $true `
+                               -DownloadFromMicrosoftUpdate $true
+
+# SUM SCCM SERVERS DEPLOYMENT
+New-CMSoftwareUpdateDeployment -SoftwareUpdateGroupName $cur_sug `
+                               -DeploymentName ($suName + 
+                                                ' - SUM SCCM Servers') `
+                               -Description 'Patch Tuesday' `
+                               -DeploymentType Required `
+                               -TimeBasedOn UTC `
+                               -UserNotification DisplaySoftwareCenterOnly `
+                               -AvailableDateTime $sccm_start_time `
+                               -DeadlineDateTime $sccm_end_time `
+                               -CollectionID $SUM_SCCM_SERVERS `
                                -RequirePostRebootFullScan $true `
                                -DownloadFromMicrosoftUpdate $true
 
