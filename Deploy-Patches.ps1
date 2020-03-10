@@ -51,7 +51,7 @@ $MW_Z_FULL_PATCH_COLLECTION = 'SL20007F'
 $DEV_SERVERS = 'SL20004A'
 $QA_SERVERS = 'SL200049'
 $SAP_DEV_SERVERS = 'SL20008B'
-#$SUM_SCCM_SERVERS = 'SL200076'
+$SUM_SCCM_SERVERS = 'SL200076'
 #$EGL_SERVERS_COLLECTION = 'SL200078'
 #$SUM_ADITS_SERVERS = 'SL20008F'
 #$SAP_PRODUCTION_COLLECTION = 'SL20004B'
@@ -75,7 +75,7 @@ $sccm_start_time = $dev_start_time.AddDays(2)
 $sccm_end_time = $sccm_start_time.AddHours(4)
 
 # Production Maintenance Window Time (Next Sat. after Patch Tues.)
-$prod_start_time = $patch_tuesday.AddDays(11).AddHours(8)
+$prod_start_time = $patch_tuesday.AddDays(18).AddHours(8)
 $prod_end_time = $prod_start_time.AddHours(4)
 
 <# Confirm Patch Timing#>
